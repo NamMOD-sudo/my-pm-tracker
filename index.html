@@ -4,12 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My PM Tracker & Report</title>
-    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
 
-    <!-- Header / Navbar -->
     <nav class="navbar navbar-dark bg-dark mb-4">
         <div class="container-fluid">
             <span class="navbar-brand mb-0 h1">🛠️ My PM Tracker (ระบบบันทึกและแจ้งเตือน PM)</span>
@@ -18,7 +16,6 @@
 
     <div class="container">
         <div class="row">
-            <!-- ส่วนที่ 1: ฟอร์มกรอกข้อมูลการ PM -->
             <div class="col-md-5 mb-4">
                 <div class="card shadow-sm">
                     <div class="card-header bg-primary text-white">
@@ -47,13 +44,12 @@
                                 <label for="details" class="form-label">รายละเอียดการทำงาน</label>
                                 <textarea class="form-control" id="details" rows="3" placeholder="เช่น เปลี่ยนน้ำมันเครื่อง, ทำความสะอาดฟิลเตอร์"></textarea>
                             </div>
-                            <button type="submit" class="btn btn-success w-100">บันทึกข้อมูล</button>
+                            <button type="submit" class="btn btn-success w-100">บันทึกข้อมูลและส่งแจ้งเตือน</button>
                         </form>
                     </div>
                 </div>
             </div>
 
-            <!-- ส่วนที่ 2: ตารางแสดงประวัติและสถานะ -->
             <div class="col-md-7">
                 <div class="card shadow-sm">
                     <div class="card-header bg-secondary text-white">
@@ -71,8 +67,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="pmTableBody">
-                                    <!-- ข้อมูลจะถูกดึงมาจาก Supabase และแสดงตรงนี้ -->
-                                </tbody>
+                                    </tbody>
                             </table>
                         </div>
                     </div>
@@ -81,16 +76,57 @@
         </div>
     </div>
 
-    <!-- 1. ดึง Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <!-- 2. ระบบเชื่อมต่อและจัดการข้อมูล -->
     <script>
         const SUPABASE_URL = 'https://etvlpopntiwfudtwyhba.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_OD6ekGG0ZK6jxUe1b-dG0Q_lH6BPTi_';
 
+        // ตั้งค่า Telegram Bot
+        const TELEGRAM_BOT_TOKEN = '8685019488:AAFEmm3reur5PczjJh_C6WhxWJZSsO5PLiE'; 
+        const TELEGRAM_CHAT_ID = '8805612146';     
+
         // สร้าง Supabase Client
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // ฟังก์ชันส่งข้อความเข้า Telegram (แก้ไขตัวกรองเรียบร้อยแล้ว)
+        async function sendTelegramNotification(deviceName, pmDate, nextPmDate, details) {
+            if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+                console.log('ยังไม่ได้ใส่ค่า Telegram Bot Token หรือ Chat ID');
+                return;
+            }
+
+            // ทำความสะอาดข้อความป้องกันข้อผิดพลาด HTML Format
+            const cleanDetails = (details || '-').replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            const cleanDeviceName = deviceName.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+            const message = `🛠️ <b>มีการบันทึก PM ใหม่!</b>\n\n` +
+                            `📌 <b>อุปกรณ์:</b> ${cleanDeviceName}\n` +
+                            `📅 <b>วันที่ทำ:</b> ${pmDate}\n` +
+                            `⏳ <b>รอบถัดไป:</b> ${nextPmDate}\n` +
+                            `📝 <b>รายละเอียด:</b> ${cleanDetails}`;
+
+            try {
+                const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: TELEGRAM_CHAT_ID,
+                        text: message,
+                        parse_mode: 'HTML'
+                    })
+                });
+
+                const resData = await response.json();
+                if (!resData.ok) {
+                    console.error('Telegram Error:', resData.description);
+                    alert('ส่ง Telegram ไม่สำเร็จ: ' + resData.description);
+                }
+            } catch (error) {
+                console.error('Telegram Notification Error:', error);
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อ Telegram: ' + error.message);
+            }
+        }
 
         // ฟังก์ชันดึงข้อมูลมาแสดงในตาราง
         async function loadPmData() {
@@ -100,7 +136,6 @@
 
             if (error) {
                 console.error('Error fetching data:', error);
-                alert('เกิดข้อผิดพลาดในการดึงข้อมูล: ' + error.message);
                 return;
             }
 
@@ -142,7 +177,7 @@
             dateObj.setDate(dateObj.getDate() + pmInterval);
             const nextPmDate = dateObj.toISOString().split('T')[0];
 
-            // บันทึกลง Supabase
+            // 1. บันทึกลง Supabase
             const { error } = await supabaseClient.from('pm_logs').insert([{
                 device_name: deviceName,
                 pm_date: pmDate,
@@ -154,7 +189,10 @@
             if (error) {
                 alert('เกิดข้อผิดพลาดในการบันทึก: ' + error.message);
             } else {
-                alert('บันทึกข้อมูล PM เรียบร้อยแล้ว!');
+                // 2. ส่งแจ้งเตือนเข้า Telegram
+                await sendTelegramNotification(deviceName, pmDate, nextPmDate, details);
+
+                alert('บันทึกข้อมูลและส่งแจ้งเตือน Telegram เรียบร้อยแล้ว!');
                 document.getElementById('pmForm').reset();
                 loadPmData();
             }
