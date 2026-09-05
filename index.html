@@ -4,144 +4,160 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My PM Tracker & Report</title>
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- PapaParse Library -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        .table-responsive { max-height: 400px; overflow-y: auto; }
+        thead th { position: sticky; top: 0; background-color: #343a40; color: white; z-index: 1; }
+        .table-supabase thead th { background-color: #198754; } /* สีเขียวสำหรับตาราง Supabase */
+    </style>
 </head>
 <body class="bg-light">
 
-    <nav class="navbar navbar-dark bg-dark mb-4">
+    <!-- Header / Navbar -->
+    <nav class="navbar navbar-dark bg-dark mb-4 shadow-sm">
         <div class="container-fluid">
-            <span class="navbar-brand mb-0 h1">🛠️ My PM Tracker (ระบบบันทึกและแจ้งเตือน PM)</span>
+            <span class="navbar-brand mb-0 h1">🛠️ My PM Tracker (บันทึกข้อมูล & แจ้งเตือน Telegram)</span>
         </div>
     </nav>
 
-    <div class="container">
+    <div class="container-fluid px-4">
+        
         <div class="row">
-            <div class="col-md-5 mb-4">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="card-title mb-0">📝 บันทึกการ PM ใหม่</h5>
+            <!-- ซ้าย: ฟอร์มกรอกข้อมูลการทำ PM (Supabase + Telegram) -->
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-sm border-success h-100">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="card-title mb-0">📝 บันทึกงาน PM (ส่งเข้า Telegram)</h5>
                     </div>
                     <div class="card-body">
                         <form id="pmForm">
                             <div class="mb-3">
-                                <label for="deviceName" class="form-label">ชื่อเครื่องจักร / อุปกรณ์</label>
-                                <input type="text" class="form-control" id="deviceName" placeholder="เช่น เครื่องจักร A, Server 01" required>
+                                <label for="deviceName" class="form-label">ชื่อโรงพยาบาล / อุปกรณ์</label>
+                                <input type="text" class="form-control" id="deviceName" placeholder="เช่น รพ.นครธน (F2400)" required>
                             </div>
                             <div class="mb-3">
                                 <label for="pmDate" class="form-label">วันที่ทำ PM</label>
                                 <input type="date" class="form-control" id="pmDate" required>
                             </div>
                             <div class="mb-3">
-                                <label for="pmInterval" class="form-label">รอบ PM ถัดไป (วัน)</label>
+                                <label for="pmInterval" class="form-label">รอบ PM ถัดไป</label>
                                 <select class="form-select" id="pmInterval">
-                                    <option value="30">ทุก 30 วัน (1 เดือน)</option>
-                                    <option value="90">ทุก 90 วัน (3 เดือน)</option>
-                                    <option value="180">ทุก 180 วัน (6 เดือน)</option>
-                                    <option value="365">ทุก 365 วัน (1 ปี)</option>
+                                    <option value="30">1 เดือน (30 วัน)</option>
+                                    <option value="90">3 เดือน (90 วัน)</option>
+                                    <option value="120">4 เดือน (120 วัน)</option>
+                                    <option value="180">6 เดือน (180 วัน)</option>
                                 </select>
                             </div>
                             <div class="mb-3">
-                                <label for="details" class="form-label">รายละเอียดการทำงาน</label>
-                                <textarea class="form-control" id="details" rows="3" placeholder="เช่น เปลี่ยนน้ำมันเครื่อง, ทำความสะอาดฟิลเตอร์"></textarea>
+                                <label for="details" class="form-label">รายละเอียดงาน</label>
+                                <textarea class="form-control" id="details" rows="2" placeholder="เช่น เปลี่ยนอะไหล่, เทสระบบผ่าน"></textarea>
                             </div>
-                            <button type="submit" class="btn btn-success w-100">บันทึกข้อมูลและส่งแจ้งเตือน</button>
+                            <button type="submit" class="btn btn-success w-100 fw-bold">💾 บันทึกและส่ง Telegram</button>
                         </form>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-7">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-secondary text-white">
-                        <h5 class="card-title mb-0">📋 ประวัติและรายการแจ้งเตือน PM</h5>
+            <!-- ขวา: ประวัติการบันทึก (Supabase) -->
+            <div class="col-md-8 mb-4">
+                <div class="card shadow-sm border-success h-100">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="card-title mb-0">🕒 ประวัติการบันทึก PM ล่าสุด (จากระบบ)</h5>
                     </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover">
+                    <div class="card-body p-0">
+                        <div class="table-responsive table-supabase">
+                            <table class="table table-hover table-striped mb-0 text-nowrap">
                                 <thead>
                                     <tr>
-                                        <th>อุปกรณ์</th>
+                                        <th>สถานที่ / อุปกรณ์</th>
                                         <th>วันที่ทำล่าสุด</th>
                                         <th>รอบถัดไป</th>
+                                        <th>รายละเอียด</th>
                                         <th>สถานะ</th>
                                     </tr>
                                 </thead>
-                                <tbody id="pmTableBody">
-                                    </tbody>
+                                <tbody id="pmTableBodySupabase">
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4">กำลังโหลดข้อมูลการบันทึกล่าสุด... ⏳</td>
+                                    </tr>
+                                </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- ด้านล่าง: ตารางแผนงาน PM จาก Google Sheets -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow-sm mb-4 border-primary">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">📋 แผนงาน PM ประจำปี (อ้างอิงจาก Google Sheets)</h5>
+                        <div style="width: 300px;">
+                            <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="🔍 ค้นหาโรงพยาบาล, รุ่นเครื่อง..." onkeyup="filterTable()">
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped mb-0 text-nowrap" id="pmTableSheets">
+                                <thead>
+                                    <tr>
+                                        <th>Site ID</th>
+                                        <th>โรงพยาบาล</th>
+                                        <th>สถานที่</th>
+                                        <th>รุ่นเครื่อง</th>
+                                        <th>S/N</th>
+                                        <th>จังหวัด</th>
+                                        <th>รอบ (DI)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBodySheets">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4">กำลังโหลดข้อมูลแผนงานจาก Google Sheets... ⏳</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
+    <!-- 1. ดึง Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
+        // ==========================================
+        // ส่วนที่ 1: ระบบ Supabase (บันทึก / แจ้งเตือน / แสดงประวัติ)
+        // ==========================================
         const SUPABASE_URL = 'https://etvlpopntiwfudtwyhba.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_OD6ekGG0ZK6jxUe1b-dG0Q_lH6BPTi_';
-
-        // ตั้งค่า Telegram Bot
         const TELEGRAM_BOT_TOKEN = '8685019488:AAFEmm3reur5PczjJh_C6WhxWJZSsO5PLiE'; 
         const TELEGRAM_CHAT_ID = '8805612146';     
-
-        // สร้าง Supabase Client
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // ฟังก์ชันส่งข้อความเข้า Telegram (แก้ไขตัวกรองเรียบร้อยแล้ว)
-        async function sendTelegramNotification(deviceName, pmDate, nextPmDate, details) {
-            if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-                console.log('ยังไม่ได้ใส่ค่า Telegram Bot Token หรือ Chat ID');
-                return;
-            }
-
-            // ทำความสะอาดข้อความป้องกันข้อผิดพลาด HTML Format
-            const cleanDetails = (details || '-').replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            const cleanDeviceName = deviceName.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-            const message = `🛠️ <b>มีการบันทึก PM ใหม่!</b>\n\n` +
-                            `📌 <b>อุปกรณ์:</b> ${cleanDeviceName}\n` +
-                            `📅 <b>วันที่ทำ:</b> ${pmDate}\n` +
-                            `⏳ <b>รอบถัดไป:</b> ${nextPmDate}\n` +
-                            `📝 <b>รายละเอียด:</b> ${cleanDetails}`;
-
-            try {
-                const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        chat_id: TELEGRAM_CHAT_ID,
-                        text: message,
-                        parse_mode: 'HTML'
-                    })
-                });
-
-                const resData = await response.json();
-                if (!resData.ok) {
-                    console.error('Telegram Error:', resData.description);
-                    alert('ส่ง Telegram ไม่สำเร็จ: ' + resData.description);
-                }
-            } catch (error) {
-                console.error('Telegram Notification Error:', error);
-                alert('เกิดข้อผิดพลาดในการเชื่อมต่อ Telegram: ' + error.message);
-            }
-        }
-
-        // ฟังก์ชันดึงข้อมูลมาแสดงในตาราง
-        async function loadPmData() {
+        // ดึงประวัติมาแสดง
+        async function loadSupabaseData() {
             const { data, error } = await supabaseClient
                 .from('pm_logs')
-                .select('*');
+                .select('*')
+                .order('id', { ascending: false });
 
+            const tableBody = document.getElementById('pmTableBodySupabase');
+            
             if (error) {
-                console.error('Error fetching data:', error);
+                console.error('Error fetching Supabase data:', error);
+                tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4">เกิดข้อผิดพลาดในการโหลดประวัติ</td></tr>`;
                 return;
             }
 
-            const tableBody = document.getElementById('pmTableBody');
             tableBody.innerHTML = '';
-
             const today = new Date().toISOString().split('T')[0];
 
             if (data && data.length > 0) {
@@ -150,34 +166,59 @@
                     if (item.next_pm_date <= today) {
                         statusBadge = '<span class="badge bg-danger">ถึงกำหนด PM แล้ว!</span>';
                     }
-
                     tableBody.innerHTML += `
                         <tr>
                             <td><strong>${item.device_name}</strong></td>
                             <td>${item.pm_date}</td>
                             <td>${item.next_pm_date}</td>
+                            <td><small class="text-muted">${item.details || '-'}</small></td>
                             <td>${statusBadge}</td>
                         </tr>
                     `;
                 });
+            } else {
+                tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-4">ยังไม่มีประวัติการบันทึก</td></tr>`;
             }
         }
 
-        // ฟังก์ชันบันทึกข้อมูล
+        // ส่งแจ้งเตือน Telegram
+        async function sendTelegramNotification(deviceName, pmDate, nextPmDate, details) {
+            const cleanDetails = (details || '-').replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            const cleanDeviceName = deviceName.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+            const message = `🛠️ <b>บันทึกงาน PM ใหม่</b>\n\n` +
+                            `🏥 <b>สถานที่:</b> ${cleanDeviceName}\n` +
+                            `📅 <b>วันที่ทำ:</b> ${pmDate}\n` +
+                            `⏳ <b>นัดรอบถัดไป:</b> ${nextPmDate}\n` +
+                            `📝 <b>รายละเอียด:</b> ${cleanDetails}`;
+
+            try {
+                await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' })
+                });
+            } catch (error) {
+                console.error('Telegram Error:', error);
+            }
+        }
+
+        // บันทึกฟอร์ม
         document.getElementById('pmForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+            const btn = e.target.querySelector('button');
+            btn.innerHTML = 'กำลังบันทึก... ⏳';
+            btn.disabled = true;
+
             const deviceName = document.getElementById('deviceName').value;
             const pmDate = document.getElementById('pmDate').value;
             const pmInterval = parseInt(document.getElementById('pmInterval').value);
             const details = document.getElementById('details').value;
 
-            // คำนวณวัน PM รอบถัดไป
             const dateObj = new Date(pmDate);
             dateObj.setDate(dateObj.getDate() + pmInterval);
             const nextPmDate = dateObj.toISOString().split('T')[0];
 
-            // 1. บันทึกลง Supabase
             const { error } = await supabaseClient.from('pm_logs').insert([{
                 device_name: deviceName,
                 pm_date: pmDate,
@@ -189,17 +230,77 @@
             if (error) {
                 alert('เกิดข้อผิดพลาดในการบันทึก: ' + error.message);
             } else {
-                // 2. ส่งแจ้งเตือนเข้า Telegram
                 await sendTelegramNotification(deviceName, pmDate, nextPmDate, details);
-
-                alert('บันทึกข้อมูลและส่งแจ้งเตือน Telegram เรียบร้อยแล้ว!');
-                document.getElementById('pmForm').reset();
-                loadPmData();
+                alert('บันทึกและแจ้งเตือนสำเร็จ!');
+                e.target.reset();
+                loadSupabaseData(); // โหลดตารางประวัติใหม่ทันที
             }
+            btn.innerHTML = '💾 บันทึกและส่ง Telegram';
+            btn.disabled = false;
         });
 
-        // โหลดข้อมูลทันทีที่เปิดหน้าเว็บ
-        loadPmData();
+        // ==========================================
+        // ส่วนที่ 2: ระบบดึงข้อมูล Google Sheets
+        // ==========================================
+        window.handleSheetData = function(json) {
+            const tableBody = document.getElementById('tableBodySheets');
+            try {
+                const rows = json.table.rows;
+                let bodyHTML = '';
+                for (let i = 0; i < rows.length; i++) {
+                    const c = rows[i].c;
+                    if (!c) continue;
+
+                    const siteId = c[0] && c[0].v !== null ? c[0].v : '';
+                    const siteName = c[1] && c[1].v !== null ? c[1].v : '';
+                    const location = c[2] && c[2].v !== null ? c[2].v : '-';
+                    const instrument = c[3] && c[3].v !== null ? c[3].v : '-';
+                    const sn = c[4] && c[4].v !== null ? c[4].v : '-';
+                    const province = c[5] && c[5].v !== null ? c[5].v : '-';
+                    const di = c[6] && c[6].v !== null ? c[6].v : '-';
+
+                    if (siteName && siteName !== 'Site Name' && siteName !== '-') {
+                        bodyHTML += `
+                            <tr>
+                                <td>${siteId}</td>
+                                <td><strong>${siteName}</strong></td>
+                                <td>${location}</td>
+                                <td><span class="badge bg-info text-dark">${instrument}</span></td>
+                                <td><small class="text-muted">${sn}</small></td>
+                                <td>${province}</td>
+                                <td><span class="badge bg-warning text-dark">${di}</span></td>
+                            </tr>
+                        `;
+                    }
+                }
+                tableBody.innerHTML = bodyHTML || '<tr><td colspan="7" class="text-center py-4">ไม่พบข้อมูลในตาราง</td></tr>';
+            } catch (error) {
+                tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">เกิดข้อผิดพลาดในการประมวลผลข้อมูล Google Sheets</td></tr>`;
+            }
+        };
+
+        function loadGoogleSheetsData() {
+            const SHEET_ID = '1Ie15FQt8BVztL_zb4m7mWatKc2s_wO0cZsTFo2U0064';
+            const GID = '184199711';
+            const script = document.createElement('script');
+            script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${GID}&tqx=responseHandler:handleSheetData`;
+            document.body.appendChild(script);
+        }
+
+        // ค้นหาในตาราง Sheets
+        function filterTable() {
+            const input = document.getElementById("searchInput").value.toLowerCase();
+            const table = document.getElementById("pmTableSheets");
+            const tr = table.getElementsByTagName("tr");
+            for (let i = 1; i < tr.length; i++) {
+                const text = tr[i].textContent.toLowerCase();
+                tr[i].style.display = text.includes(input) ? "" : "none";
+            }
+        }
+
+        // สั่งทำงานตอนเปิดเว็บ
+        loadSupabaseData();
+        loadGoogleSheetsData();
     </script>
 </body>
 </html>
