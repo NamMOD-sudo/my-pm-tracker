@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My PM Tracker & Report</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+    <!-- Header / Navbar -->
+    <nav class="navbar navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">🛠️ My PM Tracker (ระบบบันทึกและแจ้งเตือน PM)</span>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row">
+            <!-- ส่วนที่ 1: ฟอร์มกรอกข้อมูลการ PM -->
+            <div class="col-md-5 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">📝 บันทึกการ PM ใหม่</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="pmForm">
+                            <div class="mb-3">
+                                <label for="deviceName" class="form-label">ชื่อเครื่องจักร / อุปกรณ์</label>
+                                <input type="text" class="form-control" id="deviceName" placeholder="เช่น เครื่องจักร A, Server 01" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="pmDate" class="form-label">วันที่ทำ PM</label>
+                                <input type="date" class="form-control" id="pmDate" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="pmInterval" class="form-label">รอบ PM ถัดไป (วัน)</label>
+                                <select class="form-select" id="pmInterval">
+                                    <option value="30">ทุก 30 วัน (1 เดือน)</option>
+                                    <option value="90">ทุก 90 วัน (3 เดือน)</option>
+                                    <option value="180">ทุก 180 วัน (6 เดือน)</option>
+                                    <option value="365">ทุก 365 วัน (1 ปี)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="details" class="form-label">รายละเอียดการทำงาน</label>
+                                <textarea class="form-control" id="details" rows="3" placeholder="เช่น เปลี่ยนน้ำมันเครื่อง, ทำความสะอาดฟิลเตอร์"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-success w-100">บันทึกข้อมูล</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ส่วนที่ 2: ตารางแสดงประวัติและสถานะ -->
+            <div class="col-md-7">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="card-title mb-0">📋 ประวัติและรายการแจ้งเตือน PM</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>อุปกรณ์</th>
+                                        <th>วันที่ทำล่าสุด</th>
+                                        <th>รอบถัดไป</th>
+                                        <th>สถานะ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pmTableBody">
+                                    <!-- ข้อมูลจะถูกดึงมาจาก Supabase และแสดงตรงนี้ -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. ดึง Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- 2. ระบบเชื่อมต่อและจัดการข้อมูล -->
+    <script>
+        const SUPABASE_URL = 'https://etvlpopntiwfudtwyhba.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_OD6ekGG0ZK6jxUe1b-dG0Q_lH6BPTi_';
+
+        // สร้าง Supabase Client
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // ฟังก์ชันดึงข้อมูลมาแสดงในตาราง
+        async function loadPmData() {
+            const { data, error } = await supabaseClient
+                .from('pm_logs')
+                .select('*');
+
+            if (error) {
+                console.error('Error fetching data:', error);
+                alert('เกิดข้อผิดพลาดในการดึงข้อมูล: ' + error.message);
+                return;
+            }
+
+            const tableBody = document.getElementById('pmTableBody');
+            tableBody.innerHTML = '';
+
+            const today = new Date().toISOString().split('T')[0];
+
+            if (data && data.length > 0) {
+                data.forEach(item => {
+                    let statusBadge = '<span class="badge bg-success">ปกติ</span>';
+                    if (item.next_pm_date <= today) {
+                        statusBadge = '<span class="badge bg-danger">ถึงกำหนด PM แล้ว!</span>';
+                    }
+
+                    tableBody.innerHTML += `
+                        <tr>
+                            <td><strong>${item.device_name}</strong></td>
+                            <td>${item.pm_date}</td>
+                            <td>${item.next_pm_date}</td>
+                            <td>${statusBadge}</td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+
+        // ฟังก์ชันบันทึกข้อมูล
+        document.getElementById('pmForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const deviceName = document.getElementById('deviceName').value;
+            const pmDate = document.getElementById('pmDate').value;
+            const pmInterval = parseInt(document.getElementById('pmInterval').value);
+            const details = document.getElementById('details').value;
+
+            // คำนวณวัน PM รอบถัดไป
+            const dateObj = new Date(pmDate);
+            dateObj.setDate(dateObj.getDate() + pmInterval);
+            const nextPmDate = dateObj.toISOString().split('T')[0];
+
+            // บันทึกลง Supabase
+            const { error } = await supabaseClient.from('pm_logs').insert([{
+                device_name: deviceName,
+                pm_date: pmDate,
+                pm_interval: pmInterval,
+                next_pm_date: nextPmDate,
+                details: details
+            }]);
+
+            if (error) {
+                alert('เกิดข้อผิดพลาดในการบันทึก: ' + error.message);
+            } else {
+                alert('บันทึกข้อมูล PM เรียบร้อยแล้ว!');
+                document.getElementById('pmForm').reset();
+                loadPmData();
+            }
+        });
+
+        // โหลดข้อมูลทันทีที่เปิดหน้าเว็บ
+        loadPmData();
+    </script>
+</body>
+</html>
